@@ -1,0 +1,20 @@
+# Visual Studio cache and build output
+.vs
+Debug
+Release
+x64
+x86
+
+# User-specific files
+.user
+.suo
+.VC.db
+.opendb
+
+# Compiled binaries and logs
+.exe
+.obj
+.ilk
+.pdb
+.tlog
+.log
