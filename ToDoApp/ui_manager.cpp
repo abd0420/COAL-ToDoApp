@@ -1,4 +1,3 @@
-#include <cstring>
 #include "raylib.h"
 
 #define RAYGUI_IMPLEMENTATION
@@ -6,82 +5,75 @@
 
 #include "storage.h"
 #include "ui_manager.h"
-
-void dummy_copy_string(char* dest, const char* src) {
-    strcpy(dest, src);
-}
-
-// Placeholder for asm_clear_buffer
-void dummy_clear_buffer(char* dest, int length) {
-    memset(dest, 0, length);
-}
-
-// Placeholder for asm_count_active
-int dummy_count_active(Task* list, int total) {
-    int pending = 0;
-    for (int i = 0; i < total; i++) {
-        if (list[i].isActive && !list[i].isDone) {
-            pending++;
-        }
-    }
-    return pending;
-}
-
+#include "asm_engine.h"
 
 void drawUI() {
     static char inputBuffer[64] = "\0";
     static bool editMode = false;
+    static char searchBuffer[2] = "\0";
+    static bool searchEditMode = false;
     static int activeFilter = 0; // 0: All, 1: Pending, 2: Completed
     static bool isAddingTask = false;
 
     int screenW = GetScreenWidth();
     int screenH = GetScreenHeight();
 
-    GuiSetStyle(DEFAULT, TEXT_SIZE, 20);  // acts as a global scaling factor for all the Text in our window.. 20px rightnow
+    GuiSetStyle(DEFAULT, TEXT_SIZE, 20);
 
-    // main title text
+    // Main title text
     const char* mainTitle = "TO-DO List";
     int titleW = MeasureText(mainTitle, 50);
     DrawText(mainTitle, (screenW - titleW) / 2, 25, 50, RAYWHITE);
 
-    // centered Add Task button
+    // Centered Add Task button
     float addBtnW = 165.0f;
     if (GuiButton(Rectangle{ (screenW - addBtnW) / 2.0f, 90, addBtnW, 38 }, GuiIconText(ICON_FILE_ADD, " Add Task"))) {
         isAddingTask = true;
         editMode = true;
+        searchEditMode = false;
     }
 
     if (isAddingTask) {
         GuiLock(); // Freeze background controls while modal is open
     }
 
-    //search filtering panel
-
+    // Search & status filtering panel
     const char* subHeading = "Search Filtering";
     int subW = MeasureText(subHeading, 24);
     DrawText(subHeading, (screenW - subW) / 2, 145, 24, RAYWHITE);
 
     float btnW = 135.0f;
     float btnH = 34.0f;
-    float gap = 18.0f;
+    float gap = 16.0f;
     float totalBtnsW = (btnW * 3.0f) + (gap * 2.0f);
-    float startBtnX = (screenW - totalBtnsW) / 2.0f;
+
+    const char* searchLabel = "Char:";
+    int searchLabelW = MeasureText(searchLabel, 20);
+    float searchBoxW = 44.0f;
+    float totalRowW = totalBtnsW + 24.0f + searchLabelW + 8.0f + searchBoxW;
+
+    float startRowX = (screenW - totalRowW) / 2.0f;
     float btnY = 178.0f;
 
     bool fAll = (activeFilter == 0);
     bool fPending = (activeFilter == 1);
     bool fCompleted = (activeFilter == 2);
 
-    if (GuiToggle(Rectangle{ startBtnX, btnY, btnW, btnH }, "All", &fAll)) activeFilter = 0;
-    if (GuiToggle(Rectangle{ startBtnX + btnW + gap, btnY, btnW, btnH }, "Pending", &fPending)) activeFilter = 1;
-    if (GuiToggle(Rectangle{ startBtnX + (btnW + gap) * 2.0f, btnY, btnW, btnH }, "Completed", &fCompleted)) activeFilter = 2;
+    if (GuiToggle(Rectangle{ startRowX, btnY, btnW, btnH }, "All", &fAll)) activeFilter = 0;
+    if (GuiToggle(Rectangle{ startRowX + btnW + gap, btnY, btnW, btnH }, "Pending", &fPending)) activeFilter = 1;
+    if (GuiToggle(Rectangle{ startRowX + (btnW + gap) * 2.0f, btnY, btnW, btnH }, "Completed", &fCompleted)) activeFilter = 2;
 
-    
-    // divider line
+    float searchX = startRowX + totalBtnsW + 24.0f;
+    DrawText(searchLabel, (int)searchX, (int)btnY + 7, 20, RAYWHITE);
+    if (GuiTextBox(Rectangle{ searchX + searchLabelW + 8.0f, btnY, searchBoxW, btnH }, searchBuffer, 2, searchEditMode)) {
+        searchEditMode = !searchEditMode;
+    }
+
+    // Divider line
     DrawLine(80, 224, screenW - 80, 224, RAYWHITE);
 
-    // status bar for the tasks (has count for active, pending and completed)
-    int pendingCount = dummy_count_active(taskList, taskCount);
+    // Status bar using x86 assembly active task counter
+    int pendingCount = asm_count_active(taskList, taskCount);
     int totalActive = 0;
     for (int i = 0; i < taskCount; i++) {
         if (taskList[i].isActive) totalActive++;
@@ -92,29 +84,31 @@ void drawUI() {
     int statusW = MeasureText(statusText, 22);
     DrawText(statusText, (screenW - statusW) / 2, 236, 22, RAYWHITE);
 
-    // transluncent rectangle window for the task cards
+    // Translucent rectangle window for the task cards
     int panelW = 720;
     int panelX = (screenW - panelW) / 2;
     int panelY = 272;
-    int panelH = screenH - panelY - 25; // fills down to y = 775 with a 25px bottom margin
+    int panelH = screenH - panelY - 25;
 
     DrawRectangle(panelX, panelY, panelW, panelH, Fade(BLACK, 0.28f));
 
-    // clips anything that goes past the panel's bottom border so cards never spill over
+    // Clip cards inside panel borders
     BeginScissorMode(panelX, panelY, panelW, panelH);
-
 
     int cardW = panelW - 24;
     int cardH = 44;
     int cardX = panelX + 12;
     int drawY = panelY + 12;
 
-    //adding each task's own task card
+    // Render each active & filtered task card
     for (int i = 0; i < taskCount; i++) {
         if (!taskList[i].isActive) continue;
 
         if (activeFilter == 1 && taskList[i].isDone) continue;
         if (activeFilter == 2 && !taskList[i].isDone) continue;
+
+        // Filter by target character via x86 assembly REPNE SCASB
+        if (searchBuffer[0] != '\0' && !asm_search_char(taskList[i].title, searchBuffer[0])) continue;
 
         Color cardColor = taskList[i].isDone ? Fade(BLACK, 0.25f) : Fade(RAYWHITE, 0.20f);
         Color textColor = taskList[i].isDone ? GRAY : RAYWHITE;
@@ -131,7 +125,7 @@ void drawUI() {
         }
 
         if (GuiButton(Rectangle{ (float)(cardX + cardW - 42), (float)drawY + 7, 32, 30 }, GuiIconText(ICON_CROSS, ""))) {
-            dummy_clear_buffer(taskList[i].title, 64);
+            asm_clear_buffer(taskList[i].title, 64);
             taskList[i].isDone = false;
             taskList[i].isActive = false;
         }
@@ -140,7 +134,7 @@ void drawUI() {
 
     EndScissorMode();
 
-    //overlay for adding a task (popup window where user types in the task content)
+    // Modal overlay for adding a new task
     if (isAddingTask) {
         GuiUnlock();
 
@@ -162,18 +156,18 @@ void drawUI() {
 
         if (GuiButton(Rectangle{ modalX + 20, modalY + 120, 120, 40 }, "Save") || IsKeyPressed(KEY_ENTER)) {
             if (inputBuffer[0] != '\0' && taskCount < MAX_TASKS) {
-                dummy_copy_string(taskList[taskCount].title, inputBuffer);
+                asm_copy_string(taskList[taskCount].title, inputBuffer);
                 taskList[taskCount].isDone = false;
                 taskList[taskCount].isActive = true;
                 taskCount++;
             }
-            dummy_clear_buffer(inputBuffer, 64);
+            asm_clear_buffer(inputBuffer, 64);
             isAddingTask = false;
             editMode = false;
         }
 
         if (GuiButton(Rectangle{ modalX + 155, modalY + 120, 120, 40 }, "Cancel") || IsKeyPressed(KEY_ESCAPE)) {
-            dummy_clear_buffer(inputBuffer, 64);
+            asm_clear_buffer(inputBuffer, 64);
             isAddingTask = false;
             editMode = false;
         }
