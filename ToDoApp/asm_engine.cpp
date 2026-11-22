@@ -1,57 +1,12 @@
 #include "asm_engine.h"
 
-
 void asm_copy_string(char* dest, const char* src) {
-    __asm {
-        push esi
-        push edi
-        push ecx
-
-        mov esi, src
-        mov edi, dest
-
-        mov ecx, 0
-
-        count_loop :
-        cmp byte ptr[esi + ecx], 0
-            je copy_start
-            inc ecx
-            jmp count_loop
-
-            copy_start :
-        inc ecx
-            cld
-            rep movsb
-
-            pop ecx
-            pop edi
-            pop esi
-    }
+    // TODO: Implement using CLD and REP MOVSB
 }
-
-
 
 void asm_clear_buffer(char* dest, int length) {
-    __asm {
-        push edi
-        push ecx
-
-        mov edi, dest
-        mov ecx, length
-        xor eax, eax
-
-        cmp ecx, 0
-        jle done_clear
-
-        cld; Forward direction
-        rep stosb
-
-        done_clear :
-        pop ecx
-            pop edi
-    }
+    // TODO: Implement using CLD, AL = 0, and REP STOSB
 }
-
 
 int asm_count_active(Task* list, int totalTasks) {
     int pendingCount = 0;
