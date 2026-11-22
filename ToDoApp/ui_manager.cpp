@@ -6,6 +6,7 @@
 
 #include "storage.h"
 #include "ui_manager.h"
+#include "asm_engine.h"
 
 void dummy_copy_string(char* dest, const char* src) {
     strcpy(dest, src);
@@ -31,8 +32,9 @@ int dummy_count_active(Task* list, int total) {
 void drawUI() {
     static char inputBuffer[64] = "\0";
     static bool editMode = false;
-    static int activeFilter = 0; // 0: All, 1: Pending, 2: Completed
+    static int activeFilter = 0; // (0: All, 1: Pending, 2: Completed)
     static bool isAddingTask = false;
+    static char selectedChar = '\0';  //for the character-wise filtering
 
     int screenW = GetScreenWidth();
     int screenH = GetScreenHeight();
@@ -56,7 +58,6 @@ void drawUI() {
     }
 
     //search filtering panel
-
     const char* subHeading = "Search Filtering";
     int subW = MeasureText(subHeading, 24);
     DrawText(subHeading, (screenW - subW) / 2, 145, 24, RAYWHITE);
@@ -76,9 +77,42 @@ void drawUI() {
     if (GuiToggle(Rectangle{ startBtnX + btnW + gap, btnY, btnW, btnH }, "Pending", &fPending)) activeFilter = 1;
     if (GuiToggle(Rectangle{ startBtnX + (btnW + gap) * 2.0f, btnY, btnW, btnH }, "Completed", &fCompleted)) activeFilter = 2;
 
-    
+
+    // alphabet wise filtering panel 
+
+    float alphaBtnW = 44.0f;
+    float alphaBtnH = 26.0f;
+    float alphaGap = 4.0f;
+    int cols = 14;
+    float gridW = (cols * alphaBtnW) + ((cols - 1) * alphaGap);
+    float gridStartX = (screenW - gridW) / 2.0f;
+    float gridStartY = 220.0f; 
+
+    for (int idx = 0; idx < 26; idx++) {
+        char letter = 'A' + idx;
+        int row = idx / cols;
+        int col = idx % cols;
+
+        float bx = gridStartX + col * (alphaBtnW + alphaGap);
+        float by = gridStartY + row * (alphaBtnH + alphaGap);
+
+        bool isSelected = (selectedChar == letter);
+        const char* label = TextFormat("%c", letter);
+
+        if (GuiToggle(Rectangle{ bx, by, alphaBtnW, alphaBtnH }, label, &isSelected)) {
+            selectedChar = isSelected ? letter : '\0';
+        }
+    }
+
+    // "All" reset button clears the letter filtering
+    float clearX = gridStartX + 13 * (alphaBtnW + alphaGap);
+    float clearY = gridStartY + (alphaBtnH + alphaGap);
+    if (GuiButton(Rectangle{ clearX, clearY, alphaBtnW, alphaBtnH }, "All")) {
+        selectedChar = '\0';
+    }
+
     // divider line
-    DrawLine(80, 224, screenW - 80, 224, RAYWHITE);
+    DrawLine(80, 284, screenW - 80, 284, RAYWHITE);
 
     // status bar for the tasks (has count for active, pending and completed)
     int pendingCount = dummy_count_active(taskList, taskCount);
@@ -90,13 +124,13 @@ void drawUI() {
 
     const char* statusText = TextFormat("Total: %d   |   Pending: %d   |   Completed: %d", totalActive, pendingCount, completedCount);
     int statusW = MeasureText(statusText, 22);
-    DrawText(statusText, (screenW - statusW) / 2, 236, 22, RAYWHITE);
+    DrawText(statusText, (screenW - statusW) / 2, 294, 22, RAYWHITE);
 
     // transluncent rectangle window for the task cards
-    int panelW = 720;
+    int panelW = 680;
     int panelX = (screenW - panelW) / 2;
-    int panelY = 272;
-    int panelH = screenH - panelY - 25; // fills down to y = 775 with a 25px bottom margin
+    int panelY = 326;
+    int panelH = screenH - panelY - 20; // fills down to y = 775 with a 25px bottom margin
 
     DrawRectangle(panelX, panelY, panelW, panelH, Fade(BLACK, 0.28f));
 
@@ -115,6 +149,13 @@ void drawUI() {
 
         if (activeFilter == 1 && taskList[i].isDone) continue;
         if (activeFilter == 2 && !taskList[i].isDone) continue;
+
+        if (selectedChar != '\0') {
+            if (!asm_search_char(taskList[i].title, selectedChar) &&
+                !asm_search_char(taskList[i].title, selectedChar + 32)) {
+                continue;
+            }
+        }
 
         Color cardColor = taskList[i].isDone ? Fade(BLACK, 0.25f) : Fade(RAYWHITE, 0.20f);
         Color textColor = taskList[i].isDone ? GRAY : RAYWHITE;
