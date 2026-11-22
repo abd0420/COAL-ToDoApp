@@ -1,4 +1,3 @@
-#include <cstring>
 #include "raylib.h"
 
 #define RAYGUI_IMPLEMENTATION
@@ -7,27 +6,6 @@
 #include "storage.h"
 #include "ui_manager.h"
 #include "asm_engine.h"
-
-void dummy_copy_string(char* dest, const char* src) {
-    strcpy(dest, src);
-}
-
-// Placeholder for asm_clear_buffer
-void dummy_clear_buffer(char* dest, int length) {
-    memset(dest, 0, length);
-}
-
-// Placeholder for asm_count_active
-int dummy_count_active(Task* list, int total) {
-    int pending = 0;
-    for (int i = 0; i < total; i++) {
-        if (list[i].isActive && !list[i].isDone) {
-            pending++;
-        }
-    }
-    return pending;
-}
-
 
 void drawUI() {
     static char inputBuffer[64] = "\0";
@@ -86,7 +64,7 @@ void drawUI() {
     int cols = 14;
     float gridW = (cols * alphaBtnW) + ((cols - 1) * alphaGap);
     float gridStartX = (screenW - gridW) / 2.0f;
-    float gridStartY = 220.0f; 
+    float gridStartY = 220.0f;
 
     for (int idx = 0; idx < 26; idx++) {
         char letter = 'A' + idx;
@@ -115,7 +93,7 @@ void drawUI() {
     DrawLine(80, 284, screenW - 80, 284, RAYWHITE);
 
     // status bar for the tasks (has count for active, pending and completed)
-    int pendingCount = dummy_count_active(taskList, taskCount);
+    int pendingCount = asm_count_active(taskList, taskCount);
     int totalActive = 0;
     for (int i = 0; i < taskCount; i++) {
         if (taskList[i].isActive) totalActive++;
@@ -172,7 +150,7 @@ void drawUI() {
         }
 
         if (GuiButton(Rectangle{ (float)(cardX + cardW - 42), (float)drawY + 7, 32, 30 }, GuiIconText(ICON_CROSS, ""))) {
-            dummy_clear_buffer(taskList[i].title, 64);
+            asm_clear_buffer(taskList[i].title, 64);
             taskList[i].isDone = false;
             taskList[i].isActive = false;
         }
@@ -203,18 +181,18 @@ void drawUI() {
 
         if (GuiButton(Rectangle{ modalX + 20, modalY + 120, 120, 40 }, "Save") || IsKeyPressed(KEY_ENTER)) {
             if (inputBuffer[0] != '\0' && taskCount < MAX_TASKS) {
-                dummy_copy_string(taskList[taskCount].title, inputBuffer);
+                asm_copy_string(taskList[taskCount].title, inputBuffer);
                 taskList[taskCount].isDone = false;
                 taskList[taskCount].isActive = true;
                 taskCount++;
             }
-            dummy_clear_buffer(inputBuffer, 64);
+            asm_clear_buffer(inputBuffer, 64);
             isAddingTask = false;
             editMode = false;
         }
 
         if (GuiButton(Rectangle{ modalX + 155, modalY + 120, 120, 40 }, "Cancel") || IsKeyPressed(KEY_ESCAPE)) {
-            dummy_clear_buffer(inputBuffer, 64);
+            asm_clear_buffer(inputBuffer, 64);
             isAddingTask = false;
             editMode = false;
         }
