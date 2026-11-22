@@ -1,4 +1,3 @@
-
 #include "raylib.h"
 #include "storage.h"
 #include "ui_manager.h"
@@ -8,6 +7,7 @@ int main() {
 
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(800, 600, "ToDo App");
+    SetExitKey(KEY_NULL);
 
     SetWindowMinSize(900, 600);
 
