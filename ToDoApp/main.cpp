@@ -1,3 +1,4 @@
+
 #include "raylib.h"
 #include "storage.h"
 #include "ui_manager.h"
@@ -5,21 +6,27 @@
 int main() {
     loadTasks();
 
-    // for manual window resizing alongside automatic monitor scaling
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-
-    // init the graphics context first so monitor queries return valid sizes
     InitWindow(800, 600, "ToDo App");
 
-    // Get the active monitor's resolution and position
+    SetWindowMinSize(900, 600);
+
+    // Load background and fonts
+    Texture2D background = LoadTexture("assets/background.png");
+    initUIAssets();
+
+    // Monitor resolution
     int monitor = GetCurrentMonitor();
     int monitorWidth = GetMonitorWidth(monitor);
     int monitorHeight = GetMonitorHeight(monitor);
     Vector2 monitorPos = GetMonitorPosition(monitor);
 
-    //  resize to 75% of the monitor and center the window
     int windowWidth = (int)(monitorWidth * 0.75f);
     int windowHeight = (int)(monitorHeight * 0.75f);
+
+    if (windowWidth < 750) windowWidth = 750;
+    if (windowHeight < 600) windowHeight = 600;
+
     SetWindowSize(windowWidth, windowHeight);
     SetWindowPosition(
         (int)monitorPos.x + (monitorWidth - windowWidth) / 2,
@@ -30,7 +37,46 @@ int main() {
 
     while (!WindowShouldClose()) {
         BeginDrawing();
-        ClearBackground(DARKGREEN);
+        ClearBackground(BLACK);
+
+        int screenW = GetScreenWidth();
+        int screenH = GetScreenHeight();
+
+        // Draw background without stretching
+        if (IsTextureValid(background)) {
+            float scaleX = (float)screenW / background.width;
+            float scaleY = (float)screenH / background.height;
+            float scale = (scaleX > scaleY) ? scaleX : scaleY;
+
+            float sourceW = screenW / scale;
+            float sourceH = screenH / scale;
+
+            Rectangle source = {
+                (background.width - sourceW) / 2.0f,
+                (background.height - sourceH) / 2.0f,
+                sourceW,
+                sourceH
+            };
+
+            Rectangle destination = {
+                0, 0, (float)screenW, (float)screenH
+            };
+
+            DrawTexturePro(
+                background,
+                source,
+                destination,
+                Vector2{ 0, 0 },
+                0,
+                WHITE
+            );
+        }
+
+        // Dark overlay for readability
+        DrawRectangle(
+            0, 0, screenW, screenH,
+            Fade(BLACK, 0.48f)
+        );
 
         drawUI();
 
@@ -38,6 +84,9 @@ int main() {
     }
 
     saveTasks();
+
+    unloadUIAssets();
+    UnloadTexture(background);
 
     CloseWindow();
     return 0;
