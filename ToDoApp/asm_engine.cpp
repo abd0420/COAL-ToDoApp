@@ -9,19 +9,20 @@ void asm_copy_string(char* dest, const char* src) {
 
         mov esi, src
         mov edi, dest
-
         mov ecx, 0
 
-        count_loop :
+        count_loop:
         cmp byte ptr[esi + ecx], 0
+            je copy_start
+            cmp ecx, 63; Cap at 63 chars to prevent title[64] overflow
             je copy_start
             inc ecx
             jmp count_loop
 
             copy_start :
-        inc ecx
-            cld
-            rep movsb
+        cld
+            rep movsb; Copy ECX characters
+            mov byte ptr[edi], 0; Always null - terminate destination
 
             pop ecx
             pop edi
@@ -64,7 +65,7 @@ int asm_count_active(Task* list, int totalTasks) {
         mov esi, list;                      ESI = base pointer to taskList[0]
 
         mov ecx, totalTasks;                ECX = loop counter
-        
+
         xor eax, eax;                       EAX = pending task count(0)
 
         cmp ecx, 0
@@ -72,7 +73,7 @@ int asm_count_active(Task* list, int totalTasks) {
 
         count_loop:
 
-            mov bl, byte ptr[esi + 65];     loads taskList[i].isActive(offset + 65)
+        mov bl, byte ptr[esi + 65];     loads taskList[i].isActive(offset + 65)
             cmp bl, 1
             jne next_task;                  Skip deleted slots(isActive == false)
 
@@ -80,15 +81,15 @@ int asm_count_active(Task* list, int totalTasks) {
             cmp bl, 0
             jne next_task;                  Skip completed tasks(isDone == true)
 
-            inc eax;                        Active & pending-> increment EAX
+            inc eax;                        Active& pending->increment EAX
 
-        next_task :
-            add esi, 66;                    Advance ESI to next Task struct (sizeof(Task) = 66)
+            next_task :
+        add esi, 66;                    Advance ESI to next Task struct (sizeof(Task) = 66)
             dec ecx
             jnz count_loop
 
-        done_count :
-            mov pendingCount, eax
+            done_count :
+        mov pendingCount, eax
 
             pop ebx
             pop ecx
@@ -99,8 +100,8 @@ int asm_count_active(Task* list, int totalTasks) {
 }
 
 bool asm_search_char(const char* str, char target) {
-    
-   
+
+
     bool found = false;
 
     __asm {
@@ -127,9 +128,9 @@ bool asm_search_char(const char* str, char target) {
         sub eax, ecx            //string length = 63 - remaining characters
         mov ecx, eax
         jmp Rest
-        
+
         //if not found then;
-        NoTerminator:
+        NoTerminator :
         mov ecx, 64         //re capps the scan length at 64
 
             Rest :
@@ -144,13 +145,13 @@ bool asm_search_char(const char* str, char target) {
             jne NotFound
 
             mov found, 1
-           
 
-        NotFound:
-            pop edi;
-            pop esi;
-            pop ebx;
+
+            NotFound:
+        pop edi;
+        pop esi;
+        pop ebx;
 
     }
-        return found;
+    return found;
 }
