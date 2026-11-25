@@ -1,44 +1,45 @@
 #include "asm_engine.h"
 
+// Task layout (sizeof = 66): title[64] @ +0 | isDone @ +64 | isActive @ +65
 
 void asm_copy_string(char* dest, const char* src) {
     __asm {
-        __asm {
-            push ebx
-            push esi
-            push edi
-            push ecx
+        push ebx
+        push esi
+        push edi
+        push ecx
 
-            mov esi, src
-            mov edi, dest
-            test esi, esi       // null ptr check for src
-            jz CopyDone
-            test edi, edi       // null ptr check for src
-            jz CopyDone
+        mov esi, src
+        mov edi, dest
 
-            xor ecx, ecx       // ecx = 0
+        test esi, esi               // null guards
+        jz copy_done
+        test edi, edi
+        jz copy_done
 
-            count_loop:
-                cmp byte ptr[esi + ecx], 0
-                je copy_start  //stops when null-term is reached
-                cmp ecx, 63    //capps at 63 chars so title[64] never overflows
-                je copy_start
-                inc ecx
-                jmp count_loop
+        xor ecx, ecx                // ECX = length to copy
+
+        count_loop :
+        cmp byte ptr[esi + ecx], 0
+            je copy_start
+            cmp ecx, 63             // cap at 63 so title[64] never overflows
+            je copy_start
+            inc ecx
+            jmp count_loop
 
             copy_start :
-                cld     //clears DF
-                rep movsb
-                mov byte ptr[edi], 0    // to append \0 at the end
+        cld
+            rep movsb
+            mov byte ptr[edi], 0    // null-terminate destination
 
-            CopyDone:
-                pop ecx
-                pop edi
-                pop esi
-                pop ebx
-        }
+            copy_done :
+            pop ecx
+            pop edi
+            pop esi
+            pop ebx
     }
 }
+
 
 void asm_clear_buffer(char* dest, int bufferLength) {
     __asm {
@@ -48,36 +49,32 @@ void asm_clear_buffer(char* dest, int bufferLength) {
 
         mov edi, dest
         mov ecx, bufferLength
-        
-        //NULL dest gurad
-        test edi, edi
+
+        test edi, edi               // null guard
         jz done_clear
 
-        // 0 or -ve buffer lengths omitted
-        cmp ecx, 0
+        cmp ecx, 0                  // ignore zero / negative lengths
         jle done_clear
 
         cld
         xor eax, eax
 
-        ; Stage 1: Fast 4 - byte(DWORD) bulk wipe using REP STOSD
-        mov ebx, ecx
-        shr ecx, 2         // ECX = bufferLength / 4 
-        rep stosd; 
+        mov ebx, ecx                // stage 1: wipe 4 bytes at a time
+        shr ecx, 2
+        rep stosd
 
-        ; Stage 2: Wipe remaining 0–3 trailing bytes using REP STOSB
-        mov ecx, ebx
-        and ecx, 3      //ecx = bufferLength % 4 (remainder bytes)
+        mov ecx, ebx                // stage 2: wipe the last 0-3 bytes
+        and ecx, 3
         rep stosb
 
         done_clear :
-            pop ecx
+        pop ecx
             pop edi
             pop ebx
     }
 }
 
-//  Clear-out queries on this
+
 int asm_count_active(Task* list, int totalTasks) {
     int pendingCount = 0;
 
@@ -92,40 +89,30 @@ int asm_count_active(Task* list, int totalTasks) {
         mov ecx, totalTasks
         xor eax, eax
 
-        // NULL array pointer
-        test esi, esi
+        test esi, esi               // null guard
         jz exit_count
 
-        // empty or negative task count
-        cmp ecx, 0
+        cmp ecx, 0                  // empty / negative count
         jle exit_count
 
         count_loop :
-    
-            mov edi, esi
-            add edi, 65         // EDI = &taskList[i].isActive(offset + 65)
-            movzx edx, byte ptr[edi] 
-            cmp edx, 1
-            jne next_task;      //sk ips deleted / inactive slots(isActive == false)
+        cmp byte ptr[esi + 65], 1   // skip deleted slots
+            jne next_task
 
-            mov edi, esi
-            add edi, 64         //EDI = &taskList[i].isDone(offset + 64)
-            movzx edx, byte ptr[edi]
-            cmp edx, 0
+            cmp byte ptr[esi + 64], 0   // skip completed tasks
             jne next_task
 
             inc eax
 
             next_task :
-      
-            add esi, 66         // ESI now points to taskList[i + 1]
+        add esi, 66
             dec ecx
             jnz count_loop
 
-            mov pendingCount, eax;      //  stores final tally into C++ var
+            mov pendingCount, eax
 
             exit_count :
-            pop edi
+        pop edi
             pop esi
             pop edx
             pop ecx
@@ -136,9 +123,55 @@ int asm_count_active(Task* list, int totalTasks) {
 }
 
 
+int asm_count_completed(Task* list, int totalTasks) {
+    int completedCount = 0;
+
+    __asm {
+        push ebx
+        push ecx
+        push edx
+        push esi
+        push edi
+
+        mov esi, list
+        mov ecx, totalTasks
+        xor eax, eax
+
+        test esi, esi               // null guard
+        jz exit_completed
+
+        cmp ecx, 0                  // empty / negative count
+        jle exit_completed
+
+        completed_loop :
+        cmp byte ptr[esi + 65], 1   // skip deleted slots
+            jne next_completed
+
+            cmp byte ptr[esi + 64], 1   // skip pending tasks
+            jne next_completed
+
+            inc eax
+
+            next_completed :
+        add esi, 66
+            dec ecx
+            jnz completed_loop
+
+            mov completedCount, eax
+
+            exit_completed :
+        pop edi
+            pop esi
+            pop edx
+            pop ecx
+            pop ebx
+    }
+
+    return completedCount;
+}
+
+
 bool asm_search_char(const char* str, char target) {
-
-
     bool found = false;
 
     __asm {
@@ -147,7 +180,7 @@ bool asm_search_char(const char* str, char target) {
         push edi
 
         mov edi, str
-        test edi, edi           //safeguard for a null-ptr access
+        test edi, edi               // null guard
         jz NotFound
 
         mov bl, target
@@ -157,49 +190,139 @@ bool asm_search_char(const char* str, char target) {
         cld
         xor al, al
         mov ecx, 64
-        REPNE SCASB             //hunts for the null-terminator
+        repne scasb                 // find the null terminator
         jne NoTerminator
 
-        //if null-terminator found then;
-        mov eax, 63
-        sub eax, ecx            //string length = 63 - remaining characters
+        mov eax, 63                 // length = 63 - remaining count
+        sub eax, ecx
         mov ecx, eax
         jmp Rest
 
-        //if not found then;
         NoTerminator :
-        mov ecx, 64         //re capps the scan length at 64
+        mov ecx, 64             // no terminator: scan all 64 bytes
 
             Rest :
             test ecx, ecx
             jz NotFound
 
             mov edi, str
-            mov al, bl      //target copied from bl into al
+            mov al, bl
             cld
 
-            REPNE SCASB
+            repne scasb
             jne NotFound
 
             mov found, 1
 
-
             NotFound:
-        pop edi;
-        pop esi;
-        pop ebx;
-
+        pop edi
+            pop esi
+            pop ebx
     }
+
     return found;
 }
 
 
-            //TO DO 
+// Removes leading/trailing spaces and tabs in place.
+// Returns the new length (0 if the string was empty or only whitespace).
 int asm_trim_string(char* inputStr) {
+    int trimmedLen = 0;
 
+    __asm {
+        push ebx
+        push ecx
+        push edx
+        push esi
+        push edi
+
+        mov esi, inputStr
+        xor eax, eax
+
+        test esi, esi               // null guard
+        jz TrimExit
+
+        xor ebx, ebx                // EBX = startIdx
+
+        FindStartLoop :
+        cmp ebx, 63
+            jge AllWhitespace
+
+            mov dl, byte ptr[esi + ebx]
+            cmp dl, 0
+            je AllWhitespace
+            cmp dl, 0x20            // space
+            je AdvanceStart
+            cmp dl, 0x09            // tab
+            je AdvanceStart
+            jmp FoundStart
+
+            AdvanceStart :
+        inc ebx
+            jmp FindStartLoop
+
+            AllWhitespace :
+        mov byte ptr[esi], 0
+            xor eax, eax
+            jmp TrimExit
+
+            FoundStart :
+        mov ecx, ebx            // find the null terminator
+
+            FindNullLoop :
+        cmp ecx, 63
+            jge FoundNull
+            mov dl, byte ptr[esi + ecx]
+            cmp dl, 0
+            je FoundNull
+            inc ecx
+            jmp FindNullLoop
+
+            FoundNull :
+        dec ecx                 // ECX = endIdx (last character)
+
+            TrimEndLoop :
+        cmp ecx, ebx
+            jle ComputeLength
+
+            mov dl, byte ptr[esi + ecx]
+            cmp dl, 0x20
+            je StepBackEnd
+            cmp dl, 0x09
+            je StepBackEnd
+            jmp ComputeLength
+
+            StepBackEnd :
+        dec ecx
+            jmp TrimEndLoop
+
+            ComputeLength :
+        mov eax, ecx            // length = endIdx - startIdx + 1
+            sub eax, ebx
+            inc eax
+
+            test ebx, ebx           // no shift needed if startIdx == 0
+            jz WriteNull
+
+            mov ecx, eax            // shift the trimmed text to index 0
+            mov edi, esi
+            add esi, ebx
+            cld
+            rep movsb
+
+            mov esi, inputStr
+
+            WriteNull :
+        mov byte ptr[esi + eax], 0
+            mov trimmedLen, eax
+
+            TrimExit :
+        pop edi
+            pop esi
+            pop edx
+            pop ecx
+            pop ebx
+    }
+
+    return trimmedLen;
 }
-
-int asm_count_completed(Task* list, int totalTasks) {
-}
-
-
