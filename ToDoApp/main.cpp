@@ -5,17 +5,14 @@
 int main() {
     loadTasks();
 
+    //window resizeability and centering as per user's screen size
+
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(800, 600, "ToDo App");
     SetExitKey(KEY_NULL);
 
     SetWindowMinSize(900, 600);
 
-    // Load background and fonts
-    Texture2D background = LoadTexture("assets/background.png");
-    initUIAssets();
-
-    // Monitor resolution
     int monitor = GetCurrentMonitor();
     int monitorWidth = GetMonitorWidth(monitor);
     int monitorHeight = GetMonitorHeight(monitor);
@@ -35,6 +32,12 @@ int main() {
 
     SetTargetFPS(60);
 
+    // loads background and fonts
+    Texture2D background = LoadTexture("assets/background.png");
+    initUIAssets();
+
+    //frame loop
+
     while (!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(BLACK);
@@ -42,7 +45,7 @@ int main() {
         int screenW = GetScreenWidth();
         int screenH = GetScreenHeight();
 
-        // Draw background without stretching
+        // helps in drawing the  background without stretching
         if (IsTextureValid(background)) {
             float scaleX = (float)screenW / background.width;
             float scaleY = (float)screenH / background.height;
@@ -78,12 +81,12 @@ int main() {
             Fade(BLACK, 0.48f)
         );
 
-        drawUI();
+        drawUI(); //for all the UI heavy Lifting
 
         EndDrawing();
     }
 
-    saveTasks();
+    saveTasks(); //saves the updated tasks list to the file "tasks.txt"
 
     unloadUIAssets();
     UnloadTexture(background);

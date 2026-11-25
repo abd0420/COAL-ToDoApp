@@ -3,101 +3,138 @@
 
 void asm_copy_string(char* dest, const char* src) {
     __asm {
-        push esi
-        push edi
-        push ecx
+        __asm {
+            push ebx
+            push esi
+            push edi
+            push ecx
 
-        mov esi, src
-        mov edi, dest
-        mov ecx, 0
+            mov esi, src
+            mov edi, dest
+            test esi, esi       // null ptr check for src
+            jz CopyDone
+            test edi, edi       // null ptr check for src
+            jz CopyDone
 
-        count_loop:
-        cmp byte ptr[esi + ecx], 0
-            je copy_start
-            cmp ecx, 63; Cap at 63 chars to prevent title[64] overflow
-            je copy_start
-            inc ecx
-            jmp count_loop
+            xor ecx, ecx       // ecx = 0
+
+            count_loop:
+                cmp byte ptr[esi + ecx], 0
+                je copy_start  //stops when null-term is reached
+                cmp ecx, 63    //capps at 63 chars so title[64] never overflows
+                je copy_start
+                inc ecx
+                jmp count_loop
 
             copy_start :
-        cld
-            rep movsb; Copy ECX characters
-            mov byte ptr[edi], 0; Always null - terminate destination
+                cld     //clears DF
+                rep movsb
+                mov byte ptr[edi], 0    // to append \0 at the end
 
-            pop ecx
-            pop edi
-            pop esi
+            CopyDone:
+                pop ecx
+                pop edi
+                pop esi
+                pop ebx
+        }
     }
 }
 
-
-
 void asm_clear_buffer(char* dest, int bufferLength) {
     __asm {
+        push ebx
         push edi
         push ecx
 
         mov edi, dest
         mov ecx, bufferLength
-        xor eax, eax
+        
+        //NULL dest gurad
+        test edi, edi
+        jz done_clear
 
+        // 0 or -ve buffer lengths omitted
         cmp ecx, 0
         jle done_clear
 
-        cld; Forward direction
+        cld
+        xor eax, eax
+
+        ; Stage 1: Fast 4 - byte(DWORD) bulk wipe using REP STOSD
+        mov ebx, ecx
+        shr ecx, 2         // ECX = bufferLength / 4 
+        rep stosd; 
+
+        ; Stage 2: Wipe remaining 0–3 trailing bytes using REP STOSB
+        mov ecx, ebx
+        and ecx, 3      //ecx = bufferLength % 4 (remainder bytes)
         rep stosb
 
         done_clear :
-        pop ecx
+            pop ecx
             pop edi
+            pop ebx
     }
 }
 
-
+//  Clear-out queries on this
 int asm_count_active(Task* list, int totalTasks) {
     int pendingCount = 0;
 
     __asm {
-        push esi
-        push ecx
         push ebx
+        push ecx
+        push edx
+        push esi
+        push edi
 
-        mov esi, list;                      ESI = base pointer to taskList[0]
+        mov esi, list
+        mov ecx, totalTasks
+        xor eax, eax
 
-        mov ecx, totalTasks;                ECX = loop counter
+        // NULL array pointer
+        test esi, esi
+        jz exit_count
 
-        xor eax, eax;                       EAX = pending task count(0)
-
+        // empty or negative task count
         cmp ecx, 0
-        jle done_count;                     exit if taskCount <= 0
+        jle exit_count
 
-        count_loop:
+        count_loop :
+    
+            mov edi, esi
+            add edi, 65         // EDI = &taskList[i].isActive(offset + 65)
+            movzx edx, byte ptr[edi] 
+            cmp edx, 1
+            jne next_task;      //sk ips deleted / inactive slots(isActive == false)
 
-        mov bl, byte ptr[esi + 65];     loads taskList[i].isActive(offset + 65)
-            cmp bl, 1
-            jne next_task;                  Skip deleted slots(isActive == false)
+            mov edi, esi
+            add edi, 64         //EDI = &taskList[i].isDone(offset + 64)
+            movzx edx, byte ptr[edi]
+            cmp edx, 0
+            jne next_task
 
-            mov bl, byte ptr[esi + 64];     load taskList[i].isDone(offset + 64)
-            cmp bl, 0
-            jne next_task;                  Skip completed tasks(isDone == true)
-
-            inc eax;                        Active& pending->increment EAX
+            inc eax
 
             next_task :
-        add esi, 66;                    Advance ESI to next Task struct (sizeof(Task) = 66)
+      
+            add esi, 66         // ESI now points to taskList[i + 1]
             dec ecx
             jnz count_loop
 
-            done_count :
-        mov pendingCount, eax
+            mov pendingCount, eax;      //  stores final tally into C++ var
 
-            pop ebx
-            pop ecx
+            exit_count :
+            pop edi
             pop esi
+            pop edx
+            pop ecx
+            pop ebx
     }
 
     return pendingCount;
 }
+
 
 bool asm_search_char(const char* str, char target) {
 

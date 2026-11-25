@@ -7,10 +7,9 @@
 #include <algorithm>
 using namespace std;
 
-// Fonts
+// fonts & Colors
 static Font fontTitle, fontBody;
 
-// Colors
 static const Color PANEL = { 19, 31, 28, 245 };
 static const Color CARD = { 40, 59, 51, 255 };
 static const Color HOVER = { 54, 82, 68, 255 };
@@ -23,6 +22,7 @@ static void text(Font f, const char* s, float x, float y,
     float size, Color c) {
     DrawTextEx(f, s, { x, y }, size, 0.5f, c);
 }
+
 
 static void centered(Font f, const char* s, Rectangle r,
     float size, Color c) {
@@ -46,7 +46,7 @@ static bool button(Rectangle r, const char* label,
         DrawRectangleRoundedLinesEx(r, 0.16f, 6, 1, BORDER);
     }
 
-    centered(fontBody, label, r, 19, fg);
+    centered(fontBody, label, r, 23, fg);
 
     return enabled && hover &&
         IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
@@ -57,6 +57,14 @@ static bool matchesFilter(int i, int filter, char letter) {
     if (filter == 1 && taskList[i].isDone) return false;
     if (filter == 2 && !taskList[i].isDone) return false;
 
+
+
+
+    //asm_functions called here below
+    
+    
+    
+    
     if (letter != '\0') {
         if (!asm_search_char(taskList[i].title, letter) &&
             !asm_search_char(taskList[i].title, letter + 32))
@@ -66,11 +74,11 @@ static bool matchesFilter(int i, int filter, char letter) {
 }
 
 void initUIAssets() {
-    // Decorative font: headings only
+    // headings font 
     fontTitle = LoadFontEx(
         "assets/Hello Baby.otf", 80, nullptr, 0);
 
-    // Readable interface font: all other text
+    // overall interface font
     fontBody = LoadFontEx(
         "assets/Internet Friends.ttf", 48, nullptr, 0);
 
@@ -84,8 +92,8 @@ void unloadUIAssets() {
 }
 
 void drawUI() {
-    static char inputBuffer[64] = "";
-    static int activeFilter = 0;
+    static char inputBuffer[64] = ""; //array where the user's input gets stored
+    static int activeFilter = 0;      
     static char selectedChar = '\0';
     static bool isAddingTask = false;
     static float scroll = 0;
@@ -93,7 +101,7 @@ void drawUI() {
     int W = GetScreenWidth();
     int H = GetScreenHeight();
 
-    // Layout
+    // layout of our interface
     float margin = 24;
     float gap = 18;
     float sideW = 342;
@@ -129,7 +137,7 @@ void drawUI() {
         (int)(sy + 120), BORDER
     );
 
-    // Main filters
+    // status wise filtering 
     text(fontTitle, "FILTER TASKS", sx, sy + 140, 25, WHITE2);
 
     float fw = 94;
@@ -147,7 +155,7 @@ void drawUI() {
         activeFilter == 2, false, !isAddingTask))
         activeFilter = 2;
 
-    // Alphabet
+    // alphabetical filtering
     text(fontTitle, "FIND BY LETTER",
         sx, sy + 250, 25, WHITE2);
 
@@ -205,11 +213,12 @@ void drawUI() {
     if (button(addRect, "+ Add Task", false, true,
         !isAddingTask)) {
         isAddingTask = true;
-        asm_clear_buffer(inputBuffer, 64);
+        asm_clear_buffer(inputBuffer, 64);  // ASM FUNCTION CALLED
+
     }
 
-    // Counts
-    int pendingCount = asm_count_active(taskList, taskCount);
+    // tasks count
+    int pendingCount = asm_count_active(taskList, taskCount); //ASM FUNCTION CALLED
     int totalActive = 0;
 
     for (int i = 0; i < taskCount; i++) {
@@ -218,7 +227,7 @@ void drawUI() {
 
     int completedCount = totalActive - pendingCount;
 
-    // Statistics cards
+    // stats for the count of tasks
     float statGap = 12;
     float statW = (rw - statGap * 2) / 3;
     float statY = ry + 96;
@@ -357,7 +366,7 @@ void drawUI() {
             hovered ? HOVER : CARD
         );
 
-        // Checkbox
+        // checkbox drawings
         Rectangle checkRect = {
             rx + 14, cardY + 16, 23, 23
         };
@@ -388,7 +397,7 @@ void drawUI() {
         float availableW = rw - 140;
 
         if (MeasureTextEx(fontBody, display.c_str(),
-            20, 0.5f).x > availableW) {
+            30, 0.5f).x > availableW) {
             while (!display.empty() &&
                 MeasureTextEx(fontBody,
                     (display + "...").c_str(),
@@ -402,7 +411,7 @@ void drawUI() {
             rx + 52, cardY + 16, 20,
             taskList[i].isDone ? MUTED : WHITE2);
 
-        // Delete button
+        // Delete button "X"
         Rectangle deleteRect = {
             rx + rw - 42, cardY + 12, 31, 31
         };
@@ -423,7 +432,7 @@ void drawUI() {
 
         if (deleteHover &&
             IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            asm_clear_buffer(taskList[i].title, 64);
+            asm_clear_buffer(taskList[i].title, 64); //ASM FUNCTION CALLED
             taskList[i].isActive = false;
             taskList[i].isDone = false;
         }
@@ -450,7 +459,7 @@ void drawUI() {
     }
 
     // ==================================================
-    // ADD TASK MODAL
+    // ADD TASK Panel
     // ==================================================
 
     if (isAddingTask) {
@@ -526,26 +535,36 @@ void drawUI() {
                 17, WHITE2);
         }
 
-        // Text cursor
-        if (((int)(GetTime() * 2) % 2) == 0) {
-            string cursorText = inputBuffer;
 
-            while (!cursorText.empty() &&
-                MeasureTextEx(fontBody, cursorText.c_str(),
-                    17, 0.5f).x > input.width - 36) {
-                cursorText.erase(0, 1);
-            }
+                                ///CAN BE OMITTED
 
-            float cursorX = input.x + 14 +
-                MeasureTextEx(fontBody,
-                    cursorText.c_str(), 17, 0.5f).x;
+            //can add a static cursor only when the textbox is empty
 
-            DrawLine(
-                (int)cursorX, (int)input.y + 11,
-                (int)cursorX, (int)input.y + 33,
-                ACCENT
-            );
-        }
+        //// Text cursor
+        //if (((int)(GetTime() * 2) % 2) == 0) {
+        //    string cursorText = inputBuffer;
+
+        //    while (!cursorText.empty() &&
+        //        MeasureTextEx(fontBody, cursorText.c_str(),
+        //            17, 0.5f).x > input.width - 36) {
+        //        cursorText.erase(0, 1);
+        //    }
+
+        //    float cursorX = input.x + 14 +
+        //        MeasureTextEx(fontBody,
+        //            cursorText.c_str(), 17, 0.5f).x;
+
+        //    DrawLine(
+        //        (int)cursorX, (int)input.y + 11,
+        //        (int)cursorX, (int)input.y + 33,
+        //        ACCENT
+        //    );
+        //}
+                                // Above can be omitted
+
+
+
+        // task saving & cancel functionality
 
         bool saveClicked = button(
             { mx + mw - 165, my + 164, 140, 42 },
@@ -560,7 +579,7 @@ void drawUI() {
         if (saveClicked || IsKeyPressed(KEY_ENTER)) {
             if (inputBuffer[0] != '\0') {
 
-                // Reuse a deleted task slot
+                // reuses a deleted task slot
                 int slot = -1;
 
                 for (int i = 0; i < taskCount; i++) {
@@ -576,19 +595,19 @@ void drawUI() {
                 if (slot != -1) {
                     asm_copy_string(
                         taskList[slot].title, inputBuffer
-                    );
+                    ); //222222222222222
 
                     taskList[slot].isDone = false;
                     taskList[slot].isActive = true;
                 }
             }
 
-            asm_clear_buffer(inputBuffer, 64);
+            asm_clear_buffer(inputBuffer, 64); //1111111111111
             isAddingTask = false;
         }
 
         if (cancelClicked || IsKeyPressed(KEY_ESCAPE)) {
-            asm_clear_buffer(inputBuffer, 64);
+            asm_clear_buffer(inputBuffer, 64); //222222222222222
             isAddingTask = false;
         }
     }
