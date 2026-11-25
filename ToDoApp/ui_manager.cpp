@@ -10,6 +10,8 @@ using namespace std;
 // fonts & Colors
 static Font fontTitle, fontBody;
 
+static const float CORNER_RADIUS = 10.0f;
+
 static const Color PANEL = { 19, 31, 28, 245 };
 static const Color CARD = { 40, 59, 51, 255 };
 static const Color HOVER = { 54, 82, 68, 255 };
@@ -18,11 +20,26 @@ static const Color WHITE2 = { 239, 245, 236, 255 };
 static const Color MUTED = { 160, 185, 171, 255 };
 static const Color BORDER = { 67, 91, 77, 255 };
 
+static float radiusToRoundness(Rectangle r, float radiusPx) {
+    float minSide = std::min(r.width, r.height);
+    if (minSide <= 0.0f) return 0.0f;
+    float roundness = (radiusPx * 2.0f) / minSide;
+    return std::clamp(roundness, 0.0f, 1.0f);
+}
+
+static void drawBox(Rectangle r, Color bg, bool outlined = false,
+    Color outlineColor = BORDER, float radiusPx = CORNER_RADIUS, int segments = 8) {
+    float rnd = radiusToRoundness(r, radiusPx);
+    DrawRectangleRounded(r, rnd, segments, bg);
+    if (outlined) {
+        DrawRectangleRoundedLinesEx(r, rnd, segments, 1, outlineColor);
+    }
+}
+
 static void text(Font f, const char* s, float x, float y,
     float size, Color c) {
     DrawTextEx(f, s, { x, y }, size, 0.5f, c);
 }
-
 
 static void centered(Font f, const char* s, Rectangle r,
     float size, Color c) {
@@ -40,11 +57,7 @@ static bool button(Rectangle r, const char* label,
     Color bg = selected || primary ? ACCENT : (hover ? HOVER : CARD);
     Color fg = selected || primary ? PANEL : WHITE2;
 
-    DrawRectangleRounded(r, 0.16f, 6, bg);
-
-    if (!selected && !primary) {
-        DrawRectangleRoundedLinesEx(r, 0.16f, 6, 1, BORDER);
-    }
+    drawBox(r, bg, !selected && !primary, BORDER, CORNER_RADIUS, 8);
 
     centered(fontBody, label, r, 23, fg);
 
@@ -111,8 +124,8 @@ void drawUI() {
     };
 
     // Background panels
-    DrawRectangleRounded(sidebar, 0.095f, 8, PANEL);
-    DrawRectangleRounded(workspace, 0.08f, 8, PANEL);
+    drawBox(sidebar, PANEL, false, BORDER, CORNER_RADIUS, 8);
+    drawBox(workspace, PANEL, false, BORDER, CORNER_RADIUS, 8);
 
     // ==================================================
     // LEFT SIDEBAR
@@ -237,7 +250,7 @@ void drawUI() {
             statY, statW, 78
         };
 
-        DrawRectangleRounded(r, 0.12f, 6, CARD);
+        drawBox(r, CARD, false, BORDER, CORNER_RADIUS, 8);
 
         const char* value = TextFormat("%d", values[i]);
 
@@ -352,24 +365,16 @@ void drawUI() {
         bool hovered = mouseInList && !isAddingTask &&
             CheckCollisionPointRec(GetMousePosition(), card);
 
-        DrawRectangleRounded(
-            card, 0.12f, 6,
-            hovered ? HOVER : CARD
-        );
+        drawBox(card, hovered ? HOVER : CARD, false, BORDER, CORNER_RADIUS, 8);
 
         // checkbox drawings
         Rectangle checkRect = {
             rx + 14, cardY + 16, 23, 23
         };
 
-        DrawRectangleRounded(
-            checkRect, 0.22f, 6,
-            taskList[i].isDone ? ACCENT : PANEL
-        );
-
-        DrawRectangleRoundedLinesEx(
-            checkRect, 0.22f, 6, 1, BORDER
-        );
+        drawBox(checkRect,
+            taskList[i].isDone ? ACCENT : PANEL,
+            true, BORDER, std::min(CORNER_RADIUS, 6.0f), 8);
 
         if (taskList[i].isDone) {
             centered(fontBody, "X",
@@ -411,12 +416,9 @@ void drawUI() {
             CheckCollisionPointRec(
                 GetMousePosition(), deleteRect);
 
-        DrawRectangleRounded(
-            deleteRect, 0.2f, 6,
-            deleteHover
-            ? Color{ 145, 65, 65, 255 }
-            : PANEL
-        );
+        drawBox(deleteRect,
+            deleteHover ? Color{ 145, 65, 65, 255 } : PANEL,
+            false, BORDER, std::min(CORNER_RADIUS, 8.0f), 8);
 
         centered(fontBody, "X", deleteRect,
             15, deleteHover ? WHITE2 : MUTED);
@@ -442,11 +444,10 @@ void drawUI() {
             (scroll / maxScroll) *
             (listArea.height - barH);
 
-        DrawRectangleRounded(
-            { listArea.x + listArea.width - 4,
-              barY, 4, barH },
-            0.5f, 4, ACCENT
-        );
+        Rectangle scrollBar = {
+            listArea.x + listArea.width - 4, barY, 4, barH
+        };
+        drawBox(scrollBar, ACCENT, false, BORDER, 2.0f, 6);
     }
 
     // ==================================================
@@ -465,9 +466,9 @@ void drawUI() {
 
         Rectangle modal = { mx, my, mw, mh };
 
-        DrawRectangleRounded(modal, 0.06f, 8, PANEL);
+        drawBox(modal, PANEL, true, BORDER, CORNER_RADIUS, 8);
         DrawRectangleRoundedLinesEx(
-            modal, 0.06f, 8, 2, BORDER
+            modal, radiusToRoundness(modal, CORNER_RADIUS), 8, 2, BORDER
         );
 
         text(fontTitle, "Create a new task",
@@ -480,10 +481,7 @@ void drawUI() {
             mx + 25, my + 90, mw - 50, 46
         };
 
-        DrawRectangleRounded(input, 0.12f, 6, CARD);
-        DrawRectangleRoundedLinesEx(
-            input, 0.12f, 6, 1, ACCENT
-        );
+        drawBox(input, CARD, true, ACCENT, CORNER_RADIUS, 8);
 
         // Keyboard text input
         int key = GetCharPressed();
