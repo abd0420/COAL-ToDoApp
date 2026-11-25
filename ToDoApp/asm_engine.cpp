@@ -133,33 +133,45 @@ int asm_count_completed(Task* list, int totalTasks) {
         push esi
         push edi
 
-        mov esi, list
-        mov ecx, totalTasks
-        xor eax, eax
+        mov esi, list               // ESI = base pointer to taskList[0]
+        mov ecx, totalTasks         // ECX = total allocated slots to inspect
+        xor eax, eax                // EAX = completed active task tally (0)
 
-        test esi, esi               // null guard
-        jz exit_completed
+        // Guard 1: Reject NULL array pointer
+        test esi, esi
+        jz exit_completed_count
 
-        cmp ecx, 0                  // empty / negative count
-        jle exit_completed
+        // Guard 2: Reject empty or negative task count
+        cmp ecx, 0
+        jle exit_completed_count
 
         completed_loop :
-        cmp byte ptr[esi + 65], 1   // skip deleted slots
-            jne next_completed
+        // Step 1: Compute address of isActive ([ESI + 65]) and zero-extend byte into EDX
+        mov edi, esi
+            add edi, 65                 // EDI = &taskList[i].isActive (offset +65)
+            movzx edx, byte ptr[edi]   // Load 1-byte bool into 32-bit EDX without garbage upper bits
+            cmp edx, 1
+            jne next_completed_task     // Skip deleted/inactive slots (isActive == false)
 
-            cmp byte ptr[esi + 64], 1   // skip pending tasks
-            jne next_completed
+            // Step 2: Compute address of isDone ([ESI + 64]) and zero-extend byte into EDX
+            mov edi, esi
+            add edi, 64                 // EDI = &taskList[i].isDone (offset +64)
+            movzx edx, byte ptr[edi]   // Load 1-byte bool into 32-bit EDX without garbage upper bits
+            cmp edx, 1
+            jne next_completed_task     // Skip uncompleted/pending tasks (isDone == false)
 
+            // Step 3: Task is both active (1) and completed (1) -> increment tally
             inc eax
 
-            next_completed :
-        add esi, 66
-            dec ecx
-            jnz completed_loop
+            next_completed_task :
+        // Step 4: Advance base pointer ESI by sizeof(Task) = 66 bytes
+        add esi, 66                 // ESI now points to taskList[i + 1]
+            dec ecx                     // Decrement remaining struct count
+            jnz completed_loop          // Repeat until all totalTasks records are checked
 
-            mov completedCount, eax
+            mov completedCount, eax     // Store final tally into C++ return variable
 
-            exit_completed :
+            exit_completed_count :
         pop edi
             pop esi
             pop edx
