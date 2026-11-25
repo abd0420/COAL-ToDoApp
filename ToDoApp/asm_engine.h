@@ -13,6 +13,9 @@ void asm_clear_buffer(char* dest, int length);
 //returns count of active, uncompleted tasks
 int asm_count_active(Task* list, int totalTasks);
 
+//returns count of active, completed tasks
+int asm_count_completed(Task* list, int totalTasks);
+
 //Scans a task's title for a target character
 bool asm_search_char(const char* str, char target);
 
