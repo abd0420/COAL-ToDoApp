@@ -192,3 +192,14 @@ bool asm_search_char(const char* str, char target) {
     }
     return found;
 }
+
+
+            //TO DO 
+int asm_trim_string(char* inputStr) {
+
+}
+
+int asm_count_completed(Task* list, int totalTasks) {
+}
+
+
