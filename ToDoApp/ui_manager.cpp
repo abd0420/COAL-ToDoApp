@@ -57,14 +57,7 @@ static bool matchesFilter(int i, int filter, char letter) {
     if (filter == 1 && taskList[i].isDone) return false;
     if (filter == 2 && !taskList[i].isDone) return false;
 
-
-
-
-    //asm_functions called here below
-    
-    
-    
-    
+    // asm_functions called here below
     if (letter != '\0') {
         if (!asm_search_char(taskList[i].title, letter) &&
             !asm_search_char(taskList[i].title, letter + 32))
@@ -93,7 +86,7 @@ void unloadUIAssets() {
 
 void drawUI() {
     static char inputBuffer[64] = ""; //array where the user's input gets stored
-    static int activeFilter = 0;      
+    static int activeFilter = 0;
     static char selectedChar = '\0';
     static bool isAddingTask = false;
     static float scroll = 0;
@@ -214,18 +207,16 @@ void drawUI() {
         !isAddingTask)) {
         isAddingTask = true;
         asm_clear_buffer(inputBuffer, 64);  // ASM FUNCTION CALLED
-
     }
 
     // tasks count
     int pendingCount = asm_count_active(taskList, taskCount); //ASM FUNCTION CALLED
+    int completedCount = asm_count_completed(taskList, taskCount); //ASM FUNCTION CALLED
     int totalActive = 0;
 
     for (int i = 0; i < taskCount; i++) {
         if (taskList[i].isActive) totalActive++;
     }
-
-    int completedCount = totalActive - pendingCount;
 
     // stats for the count of tasks
     float statGap = 12;
@@ -535,37 +526,7 @@ void drawUI() {
                 17, WHITE2);
         }
 
-
-                                ///CAN BE OMITTED
-
-            //can add a static cursor only when the textbox is empty
-
-        //// Text cursor
-        //if (((int)(GetTime() * 2) % 2) == 0) {
-        //    string cursorText = inputBuffer;
-
-        //    while (!cursorText.empty() &&
-        //        MeasureTextEx(fontBody, cursorText.c_str(),
-        //            17, 0.5f).x > input.width - 36) {
-        //        cursorText.erase(0, 1);
-        //    }
-
-        //    float cursorX = input.x + 14 +
-        //        MeasureTextEx(fontBody,
-        //            cursorText.c_str(), 17, 0.5f).x;
-
-        //    DrawLine(
-        //        (int)cursorX, (int)input.y + 11,
-        //        (int)cursorX, (int)input.y + 33,
-        //        ACCENT
-        //    );
-        //}
-                                // Above can be omitted
-
-
-
         // task saving & cancel functionality
-
         bool saveClicked = button(
             { mx + mw - 165, my + 164, 140, 42 },
             "Save Task", false, true
@@ -595,19 +556,19 @@ void drawUI() {
                 if (slot != -1) {
                     asm_copy_string(
                         taskList[slot].title, inputBuffer
-                    ); //222222222222222
+                    );
 
                     taskList[slot].isDone = false;
                     taskList[slot].isActive = true;
                 }
             }
 
-            asm_clear_buffer(inputBuffer, 64); //1111111111111
+            asm_clear_buffer(inputBuffer, 64);
             isAddingTask = false;
         }
 
         if (cancelClicked || IsKeyPressed(KEY_ESCAPE)) {
-            asm_clear_buffer(inputBuffer, 64); //222222222222222
+            asm_clear_buffer(inputBuffer, 64);
             isAddingTask = false;
         }
     }
