@@ -16,4 +16,7 @@ int asm_count_active(Task* list, int totalTasks);
 //Scans a task's title for a target character
 bool asm_search_char(const char* str, char target);
 
+// Trims leading/trailing spaces and tabs in-place, and then returns cleaned string length
+int asm_trim_string(char* inputStr);
+
 #endif
