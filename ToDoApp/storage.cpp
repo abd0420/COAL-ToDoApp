@@ -7,6 +7,7 @@ using namespace std;
 
 Task taskList[MAX_TASKS] = { 0 };
 int taskCount = 0;
+
 void saveTasks() {
 
 	ofstream myFile("tasks.txt");
